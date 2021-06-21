@@ -39,12 +39,22 @@ class MyServer(BaseHTTPRequestHandler):
             print(data)
             agent.agentRequests.pop(0)
 
+
+def test_agent():
+    for i in range(20):
+        agent.reset()
+        while(not agent.done):
+            agent.step([0])
+        print("==========================================")
+
+
 if __name__ == '__main__':
     server = HTTPServer((hostName, serverPort), MyServer)
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        pass
+    print(f'Server started http://{hostName}:{serverPort}')
+    otherThread=threading.Thread(name='tester', target=test_agent,args=())
+    thread = threading.Thread(target = server.serve_forever)
+    thread.daemon = True
+    thread.start()
+    test_agent()
 
-    server.server_close()
     print('Server stopped.')
