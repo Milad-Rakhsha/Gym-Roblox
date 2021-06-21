@@ -1,7 +1,13 @@
-import logging
+import logging,threading
 import numpy as np
 from gym import spaces
 from gym_roblox.envs.RobloxBase import RobloxBaseEnv
+
+from http.server import HTTPServer
+from gym_roblox.envs.Server import MakeHandlerClassFromArgv
+hostName = 'localhost'
+serverPort = 8080
+
 
 class RobloxPendulum(RobloxBaseEnv):
     def __init__(self):
@@ -11,8 +17,11 @@ class RobloxPendulum(RobloxBaseEnv):
         self.observation_space = spaces.Box(low, high, dtype=np.float32)
         self.action_space = spaces.Box(low=-10.0, high=10.0, shape=(1,), dtype=np.float32)
         self.info =  {"timeout": 100000}
-        # with self.lock:
-        #     self.agentRequests.append({"command":"reset"})
+
+        self.server=HTTPServer((hostName, serverPort), MakeHandlerClassFromArgv(self))
+        self.serverThread = threading.Thread(target = self.server.serve_forever)
+        self.serverThread.daemon = True
+        self.serverThread.start()
 
     def reset(self):
         with self.cv:
