@@ -23,7 +23,6 @@ def MakeHandlerClassFromArgv(init_args):
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
             self.end_headers()
-            # time.sleep(1)
             data = self.rfile.read(int(self.headers['Content-Length']))
 
             data = json.loads(data)
@@ -32,7 +31,6 @@ def MakeHandlerClassFromArgv(init_args):
             with self.agent.cv:
                 self.agent.data=data
                 self.agent.cv.notify()
-                print(data)
                 self.agent.agentRequests.pop(0)
 
     return CustomHandler
