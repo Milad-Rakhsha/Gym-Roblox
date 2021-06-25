@@ -1,2 +1,2 @@
 from gym_roblox.envs.RobloxBase import  RobloxBaseEnv
-from gym_roblox.envs.RobloxPendulum import  RobloxPendulum
+from gym_roblox.envs.ContinuousActions_ContinuousStates import  ContinuousActions_ContinuousStates

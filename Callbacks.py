@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from gym_roblox.envs.RobloxPendulum import RobloxPendulum as Agent
+from gym_roblox.envs.ContinuousActions_ContinuousStates import ContinuousActions_ContinuousStates as RobloxEnv
 from stable_baselines3 import A2C, SAC, PPO, TD3
 from stable_baselines3.common.callbacks import BaseCallback
 from stable_baselines3.common.callbacks import CheckpointCallback
@@ -41,7 +41,7 @@ class ProgressBarManager(object):
 # Create log dir
 log_dir = "./PPO-Pendulum/"
 os.makedirs(log_dir, exist_ok=True)
-env=Agent()
+env=RobloxEnv()
 if(False):
     model = PPO.load(log_dir + "/rl_model_3000_steps", verbose=True)
     model.set_env(env)

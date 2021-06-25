@@ -1,4 +1,4 @@
-from gym_roblox.envs.RobloxPendulum import RobloxPendulum as Agent
+from gym_roblox.envs.ContinuousActions_ContinuousStates import ContinuousActions_ContinuousStates as RobloxEnv
 from stable_baselines3 import PPO
 from stable_baselines3.ppo.policies import MlpPolicy
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -9,8 +9,6 @@ import numpy as np
 #     while(not env.is_done()):
 #         env.step(np.asarray([0]))
         # agent.get_ob()
-
-
 
 def evaluate(model, num_episodes=100):
     """
@@ -44,7 +42,7 @@ def evaluate(model, num_episodes=100):
 
     return mean_episode_reward
 
-env=Agent()
+env=RobloxEnv()
 model = PPO(MlpPolicy, env, verbose=0)
 mean_reward_before_train = evaluate(model, num_episodes=100)
 mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=100)
