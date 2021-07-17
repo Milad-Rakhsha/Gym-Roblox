@@ -30,6 +30,7 @@ def MakeHandlerClassFromArgv(init_args):
                 raise Exception('self.agent.agentRequests is empty')
             with self.agent.cv:
                 self.agent.data=data
+                # print(data)
                 self.agent.cv.notify()
                 self.agent.agentRequests.pop(0)
 
