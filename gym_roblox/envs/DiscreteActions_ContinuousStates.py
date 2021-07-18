@@ -3,9 +3,9 @@ import numpy as np
 from gym import spaces
 from gym_roblox.envs.RobloxBase import RobloxBaseEnv
 
-class ContinuousActions_ContinuousStates(RobloxBaseEnv):
+class DiscreteActions_ContinuousStates(RobloxBaseEnv):
     def __init__(self, serverPort):
-        RobloxBaseEnv.__init__(self, serverPort)
+        RobloxBaseEnv.__init__(self,serverPort)
         self.initialize()
         self.reset()
 
@@ -15,7 +15,6 @@ class ContinuousActions_ContinuousStates(RobloxBaseEnv):
                 self.agentRequests.append({"command":"initialize"})
             self.cv.wait()
 
-
         assert len(self.data["obs_info"]["high"]) == len(self.data["obs_info"]["low"])
         num_states=len(self.data["obs_info"]["low"])
         low =np.asarray(self.data["obs_info"]["low"])
@@ -23,11 +22,7 @@ class ContinuousActions_ContinuousStates(RobloxBaseEnv):
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
         self.states=np.zeros(num_states)
 
-        assert len(self.data["ac_info"]["high"]) == len(self.data["ac_info"]["low"])
-        num_actions=len(self.data["ac_info"]["low"])
-        low =np.asarray(self.data["ac_info"]["low"])
-        high =np.asarray(self.data["ac_info"]["high"])
-        self.action_space = spaces.Box(low, high, dtype=np.float32)
-        self.action=np.zeros(num_actions)
+        self.action_space =spaces.MultiDiscrete([ 3,3 ])
+        self.action=np.zeros(2)
 
         self.info =  {"timeout": self.data["maxSteps"]}

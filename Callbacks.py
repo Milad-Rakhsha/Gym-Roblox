@@ -42,28 +42,27 @@ class ProgressBarManager(object):
 log_dir = "./PPO-Pendulum/"
 os.makedirs(log_dir, exist_ok=True)
 env=RobloxEnv()
-if(False):
-    model = PPO.load(log_dir + "/rl_model_3000_steps", verbose=True)
+loadModel=True
+if(loadModel):
+    model = PPO.load(log_dir + "/rl_model_2000_steps", verbose=True, tensorboard_log=log_dir)
     model.set_env(env)
 else:
     # Create and wrap the environment
-    env = Monitor(env, log_dir)
-    model = PPO('MlpPolicy', env, verbose=1)
+    model = PPO('MlpPolicy', Monitor(env, log_dir), verbose=1, tensorboard_log=log_dir)
 
 
 checkpoint_callback = CheckpointCallback(save_freq=1000, save_path=log_dir,
                                          name_prefix='rl_model')
 
 
-mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=20)
-print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
-
-
-with ProgressBarManager(5000) as ProgressBar: # this the garanties that the tqdm progress bar closes correctly
-    model.learn(5000,callback=[ProgressBar, checkpoint_callback])
+# mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=20)
+# print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
+#
+# with ProgressBarManager(100000) as ProgressBar: # this the garanties that the tqdm progress bar closes correctly
+#     model.learn(100000,callback=[ProgressBar, checkpoint_callback])
+#
+# model.save(log_dir + "/Final")
 
 # Evaluate the trained agent
 mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=20)
 print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
-
-model.save(log_dir + "/Final")
