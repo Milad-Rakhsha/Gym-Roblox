@@ -16,7 +16,8 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
         self.cv = threading.Condition()
         self.agentRequests=[]
         self.data=[]
-        self.rew = 0
+        self.reward = 0
+        self.eps_reward = 0
         self.steps= 0
         self.states=[]
         self.done=False
@@ -51,9 +52,12 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
         # self.states=np.zeros(num_states)
         # print(self.observation_space.spaces)
         self.observation_space = spaces.Dict(dict(
-            observation= spaces.Box(low=np.full(num_states,-np.inf), high=np.full(num_states, np.inf), dtype=np.float32),
-            achieved_goal=spaces.Box(low=np.full(num_goal,-np.inf), high=np.full(num_goal, np.inf), dtype=np.float32),
-            desired_goal=spaces.Box(low=np.full(num_goal,-np.inf), high=np.full(num_goal, np.inf), dtype=np.float32)
+            # observation= spaces.Box(low=np.full(num_states,-np.inf), high=np.full(num_states, np.inf), dtype=np.float32),
+            # achieved_goal=spaces.Box(low=np.full(num_goal,-np.inf), high=np.full(num_goal, np.inf), dtype=np.float32),
+            # desired_goal=spaces.Box(low=np.full(num_goal,-np.inf), high=np.full(num_goal, np.inf), dtype=np.float32)
+            observation= spaces.Box(low=low_obs, high=high_obs, dtype=np.float32),
+            achieved_goal=spaces.Box(low=low_ag, high=high_ag, dtype=np.float32),
+            desired_goal=spaces.Box(low=low_dg, high=high_dg, dtype=np.float32)
         ))
         self.states=OrderedDict([
                     ('observation', self.data["obs_info"]["states"] ),
@@ -68,7 +72,12 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
         self.action_space = spaces.Box(low, high, dtype=np.float32)
         self.action=np.zeros(num_actions)
 
-        self.info =  {"timeout": self.data["maxSteps"]}
+        self.info =  {"timeout": self.data["maxSteps"],
+                      "success_goal_reward": self.data["success_goal_reward"],
+                      "reward_weights": np.asarray(self.data["reward_weights"]),
+                      "scale": np.asarray(self.data["scale"]),
+                      "p_norm":  self.data["p_norm"] ,
+                       }
 
     def reset(self):
         with self.cv:
@@ -82,6 +91,8 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
                 ])
         self.done= False
         self.steps= 0
+        self.reward = 0
+        self.eps_reward = 0
         return self.states
 
     def step(self, ac):
@@ -89,18 +100,22 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
             with self.lock:
                 self.agentRequests.append({"command":"step", "actions": ac.tolist()})
             self.cv.wait()
-            self.states=OrderedDict([
-                        ('observation', np.asarray(self.data["observations"]["states"]) ),
-                        ('achieved_goal', np.asarray(self.data["observations"]["achieved_goal"])),
-                        ('desired_goal',np.asarray(self.data["observations"]["desired_goal"]))
-                    ])
-
-            self.done=self.data["is_done"] or self.steps>self.info["timeout"]
-
-        self.rew= self.data["reward"]
+        self.states=OrderedDict([
+                    ('observation', np.asarray(self.data["observations"]["states"]) ),
+                    ('achieved_goal', np.asarray(self.data["observations"]["achieved_goal"])),
+                    ('desired_goal',np.asarray(self.data["observations"]["desired_goal"]))
+                ])
+        self.done=self.data["is_done"] or self.steps>=self.info["timeout"]
+        # print(self.data)
+        self.reward= self.compute_reward(self.states["achieved_goal"], self.states["desired_goal"], self.info)
+        # self.reward=self.data["reward"]
+        self.eps_reward += self.reward
+        self.info['is_success'] = self._is_success(self.states['achieved_goal'], self.states['desired_goal'], self.info["success_goal_reward"])
         self.steps+=1
-        return self.states, self.rew, self.done, self.info
+        return self.states, self.reward, self.done, self.info
 
+    def _is_success(self, achieved_goal, desired_goal, cutoff):
+        return self.compute_reward(np.atleast_2d(achieved_goal),np.atleast_2d(desired_goal),{}) > cutoff
     # for now the reward computation is performed here not on the Lua side
     def compute_reward(self, achieved_goal, desired_goal, info):
         # with self.cv:
@@ -111,27 +126,37 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
         #         "desired_goal":  desired_goal[None,0,:].tolist()
         #         })
         #     self.cv.wait()
-        # test= np.asarray(self.data["rewards"])
-        d_eps=10
-        o_eps=10
-        v_eps=10
-        w_eps=10
-        d= np.sqrt(
-        	np.power(achieved_goal[:,0]-desired_goal[:,0],2 )+
-        	np.power(achieved_goal[:,1]-desired_goal[:,1],2 ))
-        o=np.abs(achieved_goal[:,2]-desired_goal[:,2])
+        # test_rew=  self.data["rewards"]
 
-        v=np.sqrt(
-        	np.power(achieved_goal[:,3]-desired_goal[:,3],2 )+
-        	np.power(achieved_goal[:,4]-desired_goal[:,4],2 ))
-        w=np.abs(achieved_goal[:,5]-desired_goal[:,5])
-
-        # print("achieved_goal[0]: ",achieved_goal[0,:] )
-        # print("desired_goal[0]: ",desired_goal[0,:] )
-
-        reward= np.where(d>d_eps, -1, 10/np.maximum(d, 0.01) + 10/np.maximum(v,0.01) +10/np.maximum(o, 0.01) + 10/np.maximum(w,0.01))
-                # +np.where(o>o_eps, -1, 0)+np.where(w>w_eps, -1, 0)
-        # print("roblox: ", test, " python: ", reward[0])
+        # d_eps=10/self.info["scale"][0]
+        # o_eps=10
+        # v_eps=10
+        # w_eps=10
+        # d= np.sqrt(
+        # 	np.power(achieved_goal[:,0]-desired_goal[:,0],2 )+
+        # 	np.power(achieved_goal[:,1]-desired_goal[:,1],2 ))
+        # o=np.sqrt(
+        # 	np.power(achieved_goal[:,2]-desired_goal[:,2],2 )
+        #     # +np.power(achieved_goal[:,3]-desired_goal[:,3],2 )
+        #     )
+        # v=np.sqrt(
+        # 	np.power(achieved_goal[:,3]-desired_goal[:,3],2 )+
+        # 	np.power(achieved_goal[:,4]-desired_goal[:,4],2 ))
+        #
+        # # w=np.sqrt(
+        # # 	np.power(achieved_goal[:,4]-desired_goal[:,4],2 ))* self.info["reward_weights"][6]
+        #
+        #
+        # reward= np.where(d/d_eps > 1, -1,
+        #      self.info["reward_weights"][0] / np.maximum(d,0.001)
+        #     +self.info["reward_weights"][2] / np.maximum(o,0.001)
+        #     +self.info["reward_weights"][4] / np.maximum(v,0.001)
+        # # +self.info["reward_weights"][6] / np.maximum(w,0.01)
+        # )
+        reward=-np.power(
+                        np.dot(np.abs(achieved_goal - desired_goal), self.info["reward_weights"]),
+                        self.info["p_norm"])
+        # print("reward test: ", test_rew, reward[0] )
         return reward
 
     def get_ob(self):
@@ -139,12 +164,10 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
             self.agentRequests.append({"command":"get_ob"})
             self.cv.wait()
             self.states=OrderedDict([
-                        ('observation', np.asarray(self.data["observations"]) ),
-                        ('achieved_goal', np.asarray(self.data["achieved_goal"])),
-                        ('desired_goal',np.asarray(self.data["desired_goal"]))
+                    ('observation', np.asarray(self.data["observations"]["states"]) ),
+                    ('achieved_goal', np.asarray(self.data["observations"]["achieved_goal"])),
+                    ('desired_goal',np.asarray(self.data["observations"]["desired_goal"]))
                     ])
-
-        print(self.states)
 
         return self.states
 

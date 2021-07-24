@@ -21,7 +21,7 @@ env=Monitor(RobloxEnv(), log_dir)
 model_class = DQN
 max_episode_length=env.info["timeout"]
 
-model = model_class('MultiInputPolicy', env,
+model = DQN('MultiInputPolicy', env,
                     replay_buffer_class=HerReplayBuffer,
                     replay_buffer_kwargs=dict(
                             n_sampled_goal=4,

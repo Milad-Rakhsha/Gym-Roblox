@@ -16,7 +16,8 @@ class DiscreteActions_ContinuousStates_Goal(GoalEnv):
         self.cv = threading.Condition()
         self.agentRequests=[]
         self.data=[]
-        self.rew = 0
+        self.reward = 0
+        self.eps_reward = 0
         self.steps= 0
         self.states=[]
         self.done=False
@@ -83,6 +84,8 @@ class DiscreteActions_ContinuousStates_Goal(GoalEnv):
                 ])
         self.done= False
         self.steps= 0
+        self.reward = 0
+        self.eps_reward = 0
         return self.states
 
     def step(self, ac):
@@ -98,9 +101,14 @@ class DiscreteActions_ContinuousStates_Goal(GoalEnv):
 
             self.done=self.data["is_done"] or self.steps>self.info["timeout"]
 
-        self.rew= self.data["reward"]
+
+        self.reward= self.data["reward"]
+        self.eps_reward += self.reward
+
+        self.info['is_success'] = self.eps_reward >
+
         self.steps+=1
-        return self.states, self.rew, self.done, self.info
+        return self.states, self.reward, self.done, self.info
 
     # for now the reward computation is performed here not on the Lua side
     def compute_reward(self, achieved_goal, desired_goal, info):
@@ -144,9 +152,6 @@ class DiscreteActions_ContinuousStates_Goal(GoalEnv):
                         ('achieved_goal', np.asarray(self.data["achieved_goal"])),
                         ('desired_goal',np.asarray(self.data["desired_goal"]))
                     ])
-
-        print(self.states)
-
         return self.states
 
     def is_done(self):
@@ -154,3 +159,6 @@ class DiscreteActions_ContinuousStates_Goal(GoalEnv):
 
     def render(self):
          pass
+
+    def _is_success(self, achieved_goal, desired_goal):
+        return self.compute_reward(np.atleast_2d(achieved_goal),np.atleast_2d(desired_goal),{})>50

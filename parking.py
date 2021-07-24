@@ -22,10 +22,11 @@ model = DDPG('MultiInputPolicy', env,
                     verbose=1, buffer_size=int(1e5),
                     learning_rate=1e-3, action_noise=action_noise,
                     gamma=0.99, batch_size=1024,
-                    policy_kwargs=dict(net_arch=[256, 256, 256]),
-                    # normalize=True,
+                    policy_kwargs=dict(net_arch=[512, 512, 512]),
+                    device='cuda',
                     tensorboard_log="DDPG",
-                    train_freq=max_episode_length, gradient_steps=max_episode_length,
+                    train_freq=(1,"episode"),
+                    gradient_steps=max_episode_length+1,
                     )
 
 # model = SAC('MultiInputPolicy', env,
@@ -47,7 +48,7 @@ model = DDPG('MultiInputPolicy', env,
 #                     )
 
 # Train for 2e5 steps
-model.learn(total_timesteps=1e5, log_interval=10,)
+model.learn(total_timesteps=5e5, log_interval=10,)
 # Save the trained agent
 model.save('her_ddpg_highway')
 obs = env.reset()
