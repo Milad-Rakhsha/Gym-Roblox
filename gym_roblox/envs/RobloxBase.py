@@ -6,7 +6,7 @@ from collections import OrderedDict
 from http.server import HTTPServer
 from gym_roblox.envs.Server import MakeHandlerClassFromArgv
 hostName = 'localhost'
-# serverPort = 8080
+serverPort = 8080
 
 class RobloxBaseEnv(Env):
     def __init__(self, serverPort):
@@ -44,7 +44,7 @@ class RobloxBaseEnv(Env):
                 self.agentRequests.append({"command":"step", "actions": ac.tolist()})
             self.cv.wait()
             self.states=np.asarray(self.data["observations"])
-            self.done=self.data["is_done"] or self.steps>self.info["timeout"]
+            self.done=self.data["is_done"] or self.steps > self.info["timeout"]
 
         self.rew= self.data["reward"]
         self.steps+=1

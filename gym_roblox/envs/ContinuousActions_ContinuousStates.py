@@ -16,10 +16,10 @@ class ContinuousActions_ContinuousStates(RobloxBaseEnv):
             self.cv.wait()
 
 
-        assert len(self.data["obs_info"]["high"]) == len(self.data["obs_info"]["low"])
-        num_states=len(self.data["obs_info"]["low"])
-        low =np.asarray(self.data["obs_info"]["low"])
-        high =np.asarray(self.data["obs_info"]["high"])
+        assert len(self.data["obs_info"]["states"]["high"]) == len(self.data["obs_info"]["states"]["low"])
+        num_states=len(self.data["obs_info"]["states"]["low"])
+        low =np.asarray(self.data["obs_info"]["states"]["low"])
+        high =np.asarray(self.data["obs_info"]["states"]["high"])
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float32)
         self.states=np.zeros(num_states)
 
