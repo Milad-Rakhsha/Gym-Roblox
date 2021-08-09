@@ -67,6 +67,7 @@ class RobloxBaseVecEnv(VecEnv):
             with self.lock:
                 self.agentRequests.append({"command":"resetSingleEnv", "Idx": env_idx})
             self.cv.wait()
+            self.buf_steps[env_idx]= 0
         return np.asarray(self.data["observations"])
 
     def __step(self, ac):
@@ -81,14 +82,15 @@ class RobloxBaseVecEnv(VecEnv):
 
     def step_wait(self) -> VecEnvStepReturn:
         tmp_data=self.__step(self.actions)
-                                # tmp_data["is_done"][env_idx] or self.steps[env_idx] > self.info["timeout"],\
 
         for env_idx in range(self.num_envs):
             obs, self.buf_rews[env_idx], self.buf_dones[env_idx], self.buf_infos[env_idx] =  \
                         np.asarray(tmp_data["observations"][env_idx]), \
                         tmp_data["rewards"][env_idx], \
-                        tmp_data["is_done"][env_idx], \
+                        tmp_data["is_done"][env_idx] or self.buf_steps[env_idx] > self.info["timeout"],\
                         tmp_data["info"][env_idx]
+            self.buf_steps[env_idx]+=1
+
             if self.buf_dones[env_idx]:
                 # save final observation where user can get it, then reset
                 self.buf_infos[env_idx]["terminal_observation"] = obs
