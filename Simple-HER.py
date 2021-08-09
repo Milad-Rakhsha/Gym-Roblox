@@ -23,25 +23,40 @@ max_episode_length=env.info["timeout"]
 # env = DummyVecEnv([lambda: env])
 # env = VecNormalize(env, norm_obs=True, norm_reward=False, clip_obs=150.)
 
-model = SAC('MultiInputPolicy', env,
-                    # replay_buffer_class=HerReplayBuffer,
-                    # replay_buffer_kwargs=dict(
-                    #         n_sampled_goal=4,
-                    #         goal_selection_strategy= 'future',
-                    #         online_sampling=True,
-                    #         max_episode_length=max_episode_length),
-                    verbose=1, buffer_size=int(1e5),
-                    learning_rate=1e-3,
-                    gamma=0.95, batch_size=512,
-                    tau=0.05,
-                    # policy_kwargs=dict(n_critics=2, net_arch=[512, 512, 512]),
-                    policy_kwargs=dict(net_arch=[128, 128, 128]),
-                    # normalize=True,
-                    tensorboard_log=log_dir,
-                    # max_episode_length=max_episode_length,
-                    # train_freq=max_episode_length, gradient_steps=100,
-                    )
-model = SAC.load(log_dir + "/rl_model2_200000_steps", verbose=True, tensorboard_log=log_dir, env=env)
+
+model = PPO('MultiInputPolicy', env,
+            verbose=True,
+            learning_rate=0.0003,
+            n_steps=99,
+            batch_size=99,
+            n_epochs=10,
+            gamma=0.99,
+            gae_lambda=0.95, clip_range=0.2,
+            policy_kwargs=dict(net_arch=[128, 128, 128]),
+            tensorboard_log=log_dir,
+            )
+
+
+# model = SAC('MultiInputPolicy', env,
+#                     replay_buffer_class=HerReplayBuffer,
+#                     replay_buffer_kwargs=dict(
+#                             n_sampled_goal=4,
+#                             goal_selection_strategy= 'future',
+#                             online_sampling=True,
+#                             max_episode_length=max_episode_length),
+#                     verbose=1, buffer_size=int(1e5),
+#                     learning_rate=1e-3,
+#                     gamma=0.95, batch_size=512,
+#                     tau=0.005,
+#                     learning_starts=max_episode_length*10,
+#                     # policy_kwargs=dict(n_critics=2, net_arch=[512, 512, 512]),
+#                     policy_kwargs=dict(net_arch=[128, 128, 128]),
+#                     # normalize=True,
+#                     tensorboard_log=log_dir,
+#                     # max_episode_length=max_episode_length,
+#                     # train_freq=max_episode_length, gradient_steps=100,
+#                     )
+# model = SAC.load(log_dir + "/rl_model2_495000_steps", verbose=True, tensorboard_log=log_dir, env=env)
 
 
 # n_actions = env.action_space.shape[0]
@@ -83,7 +98,7 @@ checkpoint_callback = CheckpointCallback(save_freq=5000, save_path=log_dir,
 # print(f"mean_reward:{mean_reward:.2f} +/- {std_reward:.2f}")
 
 # with ProgressBarManager(2e5) as ProgressBar: # this the garanties that the tqdm progress bar closes correctly
-model.learn(total_timesteps=5e5, log_interval=10, callback=[checkpoint_callback])
+model.learn(total_timesteps=2e6, log_interval=10, callback=[checkpoint_callback])
 # model.learn(1000)
 model.save(log_dir + "/Final")
 

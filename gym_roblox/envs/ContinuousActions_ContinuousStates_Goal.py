@@ -132,9 +132,11 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
         # o_eps=10
         # v_eps=10
         # w_eps=10
-        # d= np.sqrt(
-        # 	np.power(achieved_goal[:,0]-desired_goal[:,0],2 )+
-        # 	np.power(achieved_goal[:,1]-desired_goal[:,1],2 ))
+        achieved_goal=np.atleast_2d(achieved_goal)
+        desired_goal= np.atleast_2d(desired_goal)
+        d= np.sqrt(
+        	np.power(achieved_goal[:,0]-desired_goal[:,0],2 )+
+        	np.power(achieved_goal[:,1]-desired_goal[:,1],2 ))
         # o=np.sqrt(
         # 	np.power(achieved_goal[:,2]-desired_goal[:,2],2 )
         #     # +np.power(achieved_goal[:,3]-desired_goal[:,3],2 )
@@ -156,8 +158,9 @@ class ContinuousActions_ContinuousStates_Goal(GoalEnv):
         reward=-np.power(
                         np.dot(np.abs(achieved_goal - desired_goal), self.info["reward_weights"]),
                         self.info["p_norm"])
-        # print("reward test: ", test_rew, reward[0] )
-        return reward
+        # reward= np.where(d>0.1, -1, -1.0/np.minimum(reward,-0.1))
+        # print("reward test: ",  reward[0] )
+        return reward.squeeze()
 
     def get_ob(self):
         with self.cv:

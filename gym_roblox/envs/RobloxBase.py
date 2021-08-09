@@ -34,6 +34,7 @@ class RobloxBaseEnv(Env):
             with self.lock:
                 self.agentRequests.append({"command":"reset"})
             self.cv.wait()
+            self.states=np.asarray(self.data["observations"])
         self.done= False
         self.steps= 0
         return self.states
