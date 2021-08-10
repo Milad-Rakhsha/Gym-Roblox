@@ -18,13 +18,15 @@ from stable_baselines3.common.vec_env.vec_monitor import VecMonitor
 # Create log dir
 log_dir = "./Parking-PPO/"
 os.makedirs(log_dir, exist_ok=True)
-env=VecMonitor(RobloxVecEnv(8080), log_dir)
+env=VecMonitor(RobloxVecEnv(8060), log_dir)
 max_episode_length=env.info["timeout"]
 num_envs=env.num_envs
-n_steps = 10
-batch_size= num_envs * 2
-rollout= num_envs * n_steps
-n_epochs= rollout//batch_size * 2
+n_steps = max_episode_length
+rollout = num_envs * n_steps
+batch_size = num_envs
+n_epochs= rollout//batch_size
+
+print("n_steps=%d, rollout=%d, batch_size=%d, n_epochs=%d"%(n_steps, rollout, batch_size, n_epochs))
 
 model = PPO('MlpPolicy', env=env,
             verbose=True,
@@ -32,21 +34,21 @@ model = PPO('MlpPolicy', env=env,
             n_steps=n_steps,
             batch_size=batch_size,
             n_epochs=n_epochs,
-            learning_rate=0.0002,
-            gamma=0.995,
-            gae_lambda=0.2,
-            clip_range=0.05,
+            learning_rate=0.0003,
+            gamma=0.99,
+            gae_lambda=0.9,
+            clip_range=0.2,
             policy_kwargs=dict(net_arch=[128, 128, 128]),
             )
 
 
-checkpoint_callback = CheckpointCallback(save_freq=5000, save_path=log_dir,
+checkpoint_callback = CheckpointCallback(save_freq=50000, save_path=log_dir,
                                          name_prefix='rl_model')
 
 # model = PPO.load(log_dir + "/rl_model_235000_steps", verbose=True, tensorboard_log=log_dir, env=env)
 
 with ProgressBarManager(1e6) as ProgressBar: # this the garanties that the tqdm progress bar closes correctly
-    model.learn(1e6, log_interval=10,  callback=[ProgressBar, checkpoint_callback])
+    model.learn(1e6, log_interval=1,  callback=[ProgressBar, checkpoint_callback])
 
 # model.save(log_dir + "/Final")
 

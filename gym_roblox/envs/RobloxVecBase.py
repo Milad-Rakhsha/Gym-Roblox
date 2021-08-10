@@ -82,19 +82,18 @@ class RobloxBaseVecEnv(VecEnv):
 
     def step_wait(self) -> VecEnvStepReturn:
         tmp_data=self.__step(self.actions)
+        self.buf_rews=np.asarray(tmp_data["rewards"])
+        self.buf_dones=np.asarray(tmp_data["is_done"]) + (self.buf_steps > self.info["timeout"])
+        self.buf_infos=np.asarray(tmp_data["info"])
+        self.buf_steps+=1
+        # self.buf_obs[self.keys]= np.asarray(tmp_data["observations"])
 
         for env_idx in range(self.num_envs):
-            obs, self.buf_rews[env_idx], self.buf_dones[env_idx], self.buf_infos[env_idx] =  \
-                        np.asarray(tmp_data["observations"][env_idx]), \
-                        tmp_data["rewards"][env_idx], \
-                        tmp_data["is_done"][env_idx] or self.buf_steps[env_idx] > self.info["timeout"],\
-                        tmp_data["info"][env_idx]
-            self.buf_steps[env_idx]+=1
-
             if self.buf_dones[env_idx]:
-                # save final observation where user can get it, then reset
-                self.buf_infos[env_idx]["terminal_observation"] = obs
+                self.buf_infos[env_idx]["terminal_observation"] = tmp_data["observations"][env_idx]
                 obs = self.resetIdx(env_idx)
+            else:
+                obs = np.asarray(tmp_data["observations"][env_idx])
 
             self._save_obs(env_idx, obs)
 
