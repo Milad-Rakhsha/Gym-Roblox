@@ -34,22 +34,23 @@ os.makedirs(log_dir, exist_ok=True)
 # # Train the agent for 10000 steps
 # model.learn(total_timesteps=10000)
 
-
-
-
 env=VecMonitor(RobloxEnv(8070), log_dir)
 max_episode_length=env.info["timeout"]
-
+num_envs=env.num_envs
+n_steps = 10
+rollout = num_envs * n_steps
+batch_size = 500
+n_epochs= rollout//batch_size
 model = PPO('MlpPolicy', env=env,
             verbose=True,
             tensorboard_log=log_dir,
-            n_steps=1,
-            # learning_rate=0.0005,
-            batch_size=400,
-            # n_epochs=20,
-            # gamma=0.995,
-            # gae_lambda=0.2,
-            # clip_range=0.05,
+            n_steps=n_steps,
+            batch_size=batch_size,
+            n_epochs=n_epochs,
+            # learning_rate=0.0001,
+            # gamma=0.99,
+            # gae_lambda=0.95,
+            # clip_range=0.2,
             # policy_kwargs=dict(net_arch=[128, 128, 128]),
             )
 
@@ -57,13 +58,13 @@ model = PPO('MlpPolicy', env=env,
 checkpoint_callback = CheckpointCallback(save_freq=100, save_path=log_dir,
                                          name_prefix='rl_model')
 
-# model = PPO.load(log_dir + "/rl_model_235000_steps", verbose=True, tensorboard_log=log_dir, env=env)
+model = PPO.load(log_dir + "/rl_model_100000_steps", verbose=True, tensorboard_log=log_dir, env=env)
 
 
-with ProgressBarManager(1e5) as ProgressBar: # this the garanties that the tqdm progress bar closes correctly
-    model.learn(1e5, log_interval=1,  callback=[ProgressBar, checkpoint_callback])
+# with ProgressBarManager(1e5) as ProgressBar: # this the garanties that the tqdm progress bar closes correctly
+#     model.learn(1e5, log_interval=1,  callback=[ProgressBar, checkpoint_callback])
 
-# model.save(log_dir + "/Final")
+model.save(log_dir + "/Final")
 
 # Evaluate the trained agent
 mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=20)
