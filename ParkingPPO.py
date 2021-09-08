@@ -13,19 +13,17 @@ from stable_baselines3.common.vec_env import DummyVecEnv, VecNormalize
 from stable_baselines3.common.vec_env.vec_monitor import VecMonitor
 
 
-
-
 # Create log dir
 log_dir = "./Parking-PPO/"
 os.makedirs(log_dir, exist_ok=True)
 env=VecMonitor(RobloxVecEnv(8060), log_dir)
 max_episode_length=env.info["timeout"]
-num_envs=env.num_envs
-n_steps = 100
+num_envs = env.num_envs
+n_steps = max_episode_length//10
 rollout = num_envs * n_steps
-batch_size = 1000
+batch_size = rollout
 n_epochs= rollout//batch_size
-
+log_interval= 1#max_episode_length//n_steps
 print("n_steps=%d, rollout=%d, batch_size=%d, n_epochs=%d"%(n_steps, rollout, batch_size, n_epochs))
 
 model = PPO('MlpPolicy', env=env,
@@ -34,10 +32,11 @@ model = PPO('MlpPolicy', env=env,
             n_steps=n_steps,
             batch_size=batch_size,
             n_epochs=n_epochs,
-            learning_rate=0.0005,
+            learning_rate=0.0002,
             gamma=0.99,
-            # gae_lambda=0.95,
+            gae_lambda=0.95,
             clip_range=0.2,
+            ent_coef=0.001,
             policy_kwargs=dict(net_arch=[128, 128, 128]),
             )
 
@@ -45,12 +44,19 @@ model = PPO('MlpPolicy', env=env,
 checkpoint_callback = CheckpointCallback(save_freq=5000, save_path=log_dir,
                                          name_prefix='rl_model')
 
+#If we need to change any model parameter we should do it after the load process
 # model = PPO.load(log_dir + "/Final", verbose=True, tensorboard_log=log_dir, env=env)
+# model.n_steps = n_steps
+# model.rollout = rollout
+# model.batch_size = batch_size
+# model.n_epochs= n_epochs
+# model.log_interval= log_interval
 
-with ProgressBarManager(2e6) as ProgressBar: # this the garanties that the tqdm progress bar closes correctly
-    model.learn(2e6, log_interval=1,  callback=[ProgressBar, checkpoint_callback])
 
-# model.save(log_dir + "/Final")
+
+with ProgressBarManager(5e7) as ProgressBar: # this the garanties that the tqdm progress bar closes correctly
+    model.learn(5e7, log_interval=log_interval,  callback=[ProgressBar, checkpoint_callback])
+model.save(log_dir + "/Final")
 
 # Evaluate the trained agent
 mean_reward, std_reward = evaluate_policy(model, env, n_eval_episodes=20)
