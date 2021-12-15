@@ -1,0 +1,31 @@
+{
+    "name": "MLAgents",
+    "tree": {
+        "$className": "DataModel",
+        "StarterPlayer": {
+          "$className": "StarterPlayer",
+          "StarterPlayerScripts": {
+            "$className": "StarterPlayerScripts",
+            "Client": {
+              "$path": "src/StarterPlayer/StarterPlayerScripts"
+            }
+          },
+          "StarterCharacter": {
+              "$path": "src/StarterPlayer/StarterCharacter.rbxmx"
+          }
+        },
+        "Workspace": {
+            "$className": "Workspace",
+            "Script": {
+                "$path": "src/Workspace/Script.server.lua"
+            }
+        },
+
+        "ReplicatedStorage": {
+          "$className": "ReplicatedStorage",
+          "Model": {
+              "$path": "src/Workspace/Model.rbxmx"
+          }
+        }
+    }
+}

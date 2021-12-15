@@ -1,18 +1,25 @@
+import os,sys,queue,threading
 import numpy as np
 from gym import Env, spaces
 from collections import OrderedDict
-import zmq
-from tinyrpc import RPCClient
-from tinyrpc.protocols.jsonrpc import JSONRPCProtocol
-from gym_roblox.envs.TcpTransport import TcpTransport
 
-class RobloxBaseEnv(Env):
-    def __init__(self, serverPort, delay):
-        ctx = zmq.Context()
-        self.rpc_client = RPCClient(JSONRPCProtocol(), TcpTransport(serverPort))
-        self.rpc_client_proxy = self.rpc_client.get_proxy()
+from http.server import HTTPServer
+from gym_roblox.envs.Server import MakeHandlerClassFromArgv
+hostName = 'localhost'
+# serverPort = 8080
+
+class RobloxBaseEnvHttp(Env):
+    def __init__(self, serverPort):
+        self.server=HTTPServer((hostName, serverPort), MakeHandlerClassFromArgv(self))
+        self.serverThread = threading.Thread(target = self.server.serve_forever)
+        self.serverThread.daemon = True
+        self.serverThread.start()
+
+        self.render_setup=False
+        self.lock = threading.Lock()
+        self.cv = threading.Condition()
+        self.agentRequests=[]
         self.data=[]
-        self.delay= delay
         self.rew = 0
         self.steps= 0
         self.states=[]
@@ -23,23 +30,34 @@ class RobloxBaseEnv(Env):
        raise NotImplementedError
 
     def reset(self):
-        self.data = self.rpc_client_proxy.reset()
-        self.states=np.asarray(self.data["observations"])
+        with self.cv:
+            with self.lock:
+                self.agentRequests.append({"command":"reset"})
+            self.cv.wait()
+            self.states=np.asarray(self.data["observations"])
         self.done= False
         self.steps= 0
         return self.states
 
     def step(self, ac):
-        self.data = self.rpc_client_proxy.step(ac.tolist())
-        self.states=np.asarray(self.data["observations"])
-        self.done=self.data["is_done"] or self.steps > self.info["timeout"]
+        with self.cv:
+            with self.lock:
+                self.agentRequests.append({"command":"step", "actions": ac.tolist()})
+            self.cv.wait()
+            self.states=np.asarray(self.data["observations"])
+            self.done=self.data["is_done"] or self.steps > self.info["timeout"]
+
         self.rew= self.data["reward"]
         self.steps+=1
+
         return self.states, self.rew, self.done, self.info
 
     def get_ob(self):
-        self.step_data = self.rpc_client_proxy.get_ob()
-        self.states=np.asarray(self.data["observations"])
+        with self.cv:
+            self.agentRequests.append({"command":"get_ob"})
+            self.cv.wait()
+            self.states=np.asarray(self.data["observations"])
+
         return self.states
 
     def is_done(self):
@@ -49,7 +67,11 @@ class RobloxBaseEnv(Env):
        pass
 
     def getStepFromExpert(self):
-        self.step_data = self.rpc_client_proxy.getStepFromExpert()
+        with self.cv:
+            with self.lock:
+                self.agentRequests.append({"command":"getStepFromExpert"})
+            self.cv.wait()
+
         self.rew= self.data["reward"]
         self.states=np.asarray(self.data["observations"])
         self.action=np.asarray(self.data["actions"])
@@ -77,7 +99,10 @@ class RobloxBaseEnv(Env):
         return self.observation_space
 
     def __del__(self):
-        pass
+        if self.render_setup:
+            print('Destructor called, Device deleted.')
+        else:
+            print('Destructor called, No device to delete.')
 
     def __setstate__(self, state):
         self.__init__()

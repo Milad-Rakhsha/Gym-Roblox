@@ -5,16 +5,12 @@ from gym_roblox.envs.RobloxBase import RobloxBaseEnv
 
 class DiscreteActions_ContinuousStates(RobloxBaseEnv):
     def __init__(self, serverPort):
-        RobloxBaseEnv.__init__(self,serverPort)
+        RobloxBaseEnv.__init__(self, serverPort)
         self.initialize()
         self.reset()
 
     def initialize(self):
-        with self.cv:
-            with self.lock:
-                self.agentRequests.append({"command":"initialize"})
-            self.cv.wait()
-
+        self.step_data = self.rpc_client_proxy.initialize()
         assert len(self.data["obs_info"]["high"]) == len(self.data["obs_info"]["low"])
         num_states=len(self.data["obs_info"]["low"])
         low =np.asarray(self.data["obs_info"]["low"])
