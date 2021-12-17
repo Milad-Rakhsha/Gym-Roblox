@@ -2,7 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 RunService.PhysicsPaused = true
 local DT=0.2
-local port = 8830
+local port = 8810
 
 local NUM_ENV=Vector3.new(1,1,1)
 local Dx=100
@@ -24,6 +24,7 @@ local success_goal_reward= -0.1
 local eps_rew=0
 local max_steps=100
 
+bool_to_number={ [true]=1, [false]=0 }
 
 DEFAULT_REWARD = 0
 BOUNDARY_SIDE_LENGTH = 80
@@ -37,6 +38,7 @@ _G.EpisodeReward = 0
 
 local adversary_color=BrickColor.White()
 local agent_color=BrickColor.Blue()
+local leaderColor = BrickColor.new("Navy blue")
 
 
 local function distance(entityA, entityB)
@@ -54,28 +56,50 @@ local function setAgentColor(agent, bodyColor)
 end
 
 
-local function make_agent(env, center, blind, silent, u_range, comm, adversary, name)
-	local agent=ReplicatedStorage:WaitForChild('NPC'):Clone()
+local function make_object(env, center, obj, name, parent, height)
+	local obj=obj:Clone()
+	obj.Parent= parent
+	obj.Name= name
+	local pos=Vector3.new(
+		math.random(center.X+_G.XLimits[1], center.X+_G.XLimits[2]),
+		height,
+		math.random(center.Z+_G.ZLimits[1], center.Z+_G.ZLimits[2])
+	)
+	--obj:SetPrimaryPartCFrame (CFrame.new(pos))
+	obj.CFrame=CFrame.new(pos)
+	obj:SetAttribute("Collectable", true)
 
+	obj.Anchored=true
+	obj.CanCollide=false
+end
+
+local function make_agent(env, center, blind, silent, u_range, comm, adversary, name, leader)
+	local agent=ReplicatedStorage:WaitForChild('NPC'):Clone()
 	agent.Humanoid.WalkSpeed=u_range
 	agent.Humanoid.DisplayName=name
 	agent:SetAttribute("Blind", blind)
 	agent:SetAttribute("Silent", silent)
+	agent:SetAttribute("Leader", leader)
 	agent:SetAttribute("U_range", u_range)
 	agent:SetAttribute("Comm", comm)
 	agent:SetAttribute("Adversary", adversary)
 	agent.Parent= env.Agents
 	agent.Name="Adversary"
-	if(not adversary) then
+	if(adversary) then
 		setAgentColor(agent,adversary_color)
+		if(leader) then
+			setAgentColor(agent,leaderColor)
+			agent["Body Colors"].TorsoColor=BrickColor.DarkGray()
+		end
 		agent.Name="Agent"
-
 	end
 
 end
 
 local function make_envs(NUM_ENV)
 	Env=ReplicatedStorage:WaitForChild('Model')
+	local tree=ReplicatedStorage:WaitForChild('Tree'):Clone()
+	local coin=ReplicatedStorage:WaitForChild('Coin'):Clone()
 
 	local p1=Env.Wall1.Position
 	local p2=Env.Wall2.Position
@@ -95,16 +119,34 @@ local function make_envs(NUM_ENV)
 				i_env.Name=string.format("Env_%d_%d_%d", i,j,k)
 				make_agent(i_env, Env.center.Position,
 					--blind,silent,u_range,comm,adversary
-					false,true,20.0,Vector3.new(0,0,0),true, "adv1")
+					false,true,20.0,Vector3.new(0,0,0),true, "Adv1", false)
+
 				make_agent(i_env, Env.center.Position,
 					--blind,silent,u_range,comm,adversary
-					false,true,20.0,Vector3.new(0,0,0),true, "adv2")
+					false,true,20.0,Vector3.new(0,0,0),true, "Adv2", false)
+
 				make_agent(i_env, Env.center.Position,
 					--blind,silent,u_range,comm,adversary
-					false,true,20.0,Vector3.new(0,0,0),true, "adv3")
+					false,true,20.0,Vector3.new(0,0,0),true, "Adv3", false)
+
 				make_agent(i_env, Env.center.Position,
 					--blind,silent,u_range,comm,adversary
-					false,true,30.0,Vector3.new(0,0,0),false, "agent1")
+					false,true,20.0,Vector3.new(0,0,0),true, "Adv4", true)
+
+
+				make_agent(i_env, Env.center.Position,
+					--blind,silent,u_range,comm,adversary
+					false,true,30.0,Vector3.new(0,0,0),false, "Agent1",false)
+
+				make_agent(i_env, Env.center.Position,
+					--blind,silent,u_range,comm,adversary
+					false,true,30.0,Vector3.new(0,0,0),false, "Agent2",false)
+
+				--make_object(i_env, Env.center.Position, tree, "Tree1", i_env.Trees, 23)
+				--make_object(i_env, Env.center.Position, tree, "Tree2", i_env.Trees, 23)
+				make_object(i_env, Env.center.Position, coin, "Coin1", i_env.Coins, 2)
+				make_object(i_env, Env.center.Position, coin, "Coin2", i_env.Coins, 2)
+
 				table.insert(Envs_list, i_env)
 			end
 		end
@@ -130,10 +172,17 @@ local function get_ob_single_agent(env, agent, agent_idx)
 	table.insert(obs, agent.HumanoidRootPart.AssemblyLinearVelocity.Z)
 
 
+	--for _,tree in ipairs(env.Trees:GetChildren()) do
+	--	table.insert(obs, agent.HumanoidRootPart.Position.X-tree.Position.X)
+	--end
+	for _,coin in ipairs(env.Coins:GetChildren()) do
+		table.insert(obs, agent.HumanoidRootPart.Position.X-coin.Position.X)
+		table.insert(obs, agent.HumanoidRootPart.Position.Z-coin.Position.Z)
+		table.insert(obs, bool_to_number[coin:GetAttribute("Collectable")])
+	end
 
 
 	for idx, other_agent in ipairs(env.Agents:GetChildren()) do
-
 		if idx == agent_idx then
 			continue
 		end
@@ -143,6 +192,8 @@ local function get_ob_single_agent(env, agent, agent_idx)
 			agent.HumanoidRootPart.Position.X - other_agent.HumanoidRootPart.Position.X)
 		table.insert(obs,
 			agent.HumanoidRootPart.Position.Z - other_agent.HumanoidRootPart.Position.Z)
+
+
 		--if not other_agent:GetAttribute("Adversary") then
 			table.insert(obs,
 					agent.HumanoidRootPart.AssemblyLinearVelocity.X - other_agent.HumanoidRootPart.AssemblyLinearVelocity.X)
@@ -191,14 +242,30 @@ local function reset_single_agent(agent, center)
 	else
 		setAgentColor(agent, adversary_color)
 	end
+end
 
-
+local function reset_single_object(object, center, collecable)
+	local pos=Vector3.new(
+		math.random(center.X+_G.XLimits[1], center.X+_G.XLimits[2]),
+		3.5,
+		math.random(center.Z+_G.ZLimits[1], center.Z+_G.ZLimits[2])
+	)
+	object:SetAttribute("Collectable", true)
+	object.CFrame=CFrame.new(pos)
+	object.Transparency=0.0
 
 end
+
 local function reset_single_env(env)
 	local center=env.center.Position
 	for idx,agent in ipairs(env.Agents:GetChildren()) do
-		local comm, other_pos, other_vel= reset_single_agent( agent, center)
+		reset_single_agent( agent, center)
+	end
+	for idx,tree in ipairs(env.Trees:GetChildren()) do
+		reset_single_object( tree, center)
+	end
+	for idx,coin in ipairs(env.Coins:GetChildren()) do
+		reset_single_object( coin, center)
 	end
 	return get_ob_single_env(env)
 end
@@ -241,7 +308,7 @@ local function agent_reward(env, agent)
 			local d=distance(other_agent.HumanoidRootPart , agent.HumanoidRootPart)
 			reward+= 0.01* d
 			if (d<Collision_margin) then
-				reward-=10
+				reward-=50
 				done=true
 			end
 		else
@@ -249,6 +316,20 @@ local function agent_reward(env, agent)
 			reward+=0
 		end
 	end
+
+	for idx,coin in ipairs(env.Coins:GetChildren()) do
+		local d=distance(coin , agent.HumanoidRootPart)
+		-- some small reward to encourage collecting coins
+		reward+= 0.002* d
+		if (d<Collision_margin and coin:GetAttribute("Collectable")) then
+			reward+=20
+			setAgentColor(agent, BrickColor.Green())
+			coin:SetAttribute("Collectable", false)
+			coin.Transparency=1.0
+		end
+
+	end
+
 	return reward,done
 
 end
@@ -265,7 +346,7 @@ local function adversary_reward(env, agent)
 					local d=distance(adversary_agent.HumanoidRootPart , good_agent.HumanoidRootPart)
 					temp_reward= math.min(temp_reward, d)
 					if (d<Collision_margin) then
-						reward+=10
+						reward+=50
 						done=true
 						setAgentColor(adversary_agent, BrickColor.Green())
 						setAgentColor(good_agent, BrickColor.Red())
@@ -278,6 +359,10 @@ local function adversary_reward(env, agent)
 			reward+=0
 		end
 	end
+
+
+
+
 	return reward,done
 end
 

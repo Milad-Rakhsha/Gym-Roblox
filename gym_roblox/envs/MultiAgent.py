@@ -84,6 +84,7 @@ class MultiAgent(RobloxBaseEnv):
 
     def reset(self):
         obs_n = []
+        time.sleep(self.delay * 2)
         self.data = self.rpc_client_proxy.reset()
         for i in range(self.n):
             obs_n.append(np.asarray(self.data["observations"][0][i]))

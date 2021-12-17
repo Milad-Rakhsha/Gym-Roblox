@@ -2,7 +2,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 RunService.PhysicsPaused = true
 local DT=0.2
-local port = 8830
+local port = 8080
+
 
 local NUM_ENV=Vector3.new(1,1,1)
 local Dx=100
@@ -75,7 +76,7 @@ local function make_agent(env, center, blind, silent, u_range, comm, adversary, 
 end
 
 local function make_envs(NUM_ENV)
-	Env=ReplicatedStorage:WaitForChild('Model')
+	Env=ReplicatedStorage:WaitForChild('Simple')
 
 	local p1=Env.Wall1.Position
 	local p2=Env.Wall2.Position
@@ -98,13 +99,7 @@ local function make_envs(NUM_ENV)
 					false,true,20.0,Vector3.new(0,0,0),true, "adv1")
 				make_agent(i_env, Env.center.Position,
 					--blind,silent,u_range,comm,adversary
-					false,true,20.0,Vector3.new(0,0,0),true, "adv2")
-				make_agent(i_env, Env.center.Position,
-					--blind,silent,u_range,comm,adversary
-					false,true,20.0,Vector3.new(0,0,0),true, "adv3")
-				make_agent(i_env, Env.center.Position,
-					--blind,silent,u_range,comm,adversary
-					false,true,30.0,Vector3.new(0,0,0),false, "agent1")
+					false,true,25.0,Vector3.new(0,0,0),false, "agent1")
 				table.insert(Envs_list, i_env)
 			end
 		end
@@ -128,10 +123,6 @@ local function get_ob_single_agent(env, agent, agent_idx)
 	table.insert(obs, agent.HumanoidRootPart.Position.Z-center.Z)
 	table.insert(obs, agent.HumanoidRootPart.AssemblyLinearVelocity.X)
 	table.insert(obs, agent.HumanoidRootPart.AssemblyLinearVelocity.Z)
-
-
-
-
 	for idx, other_agent in ipairs(env.Agents:GetChildren()) do
 
 		if idx == agent_idx then
@@ -144,10 +135,10 @@ local function get_ob_single_agent(env, agent, agent_idx)
 		table.insert(obs,
 			agent.HumanoidRootPart.Position.Z - other_agent.HumanoidRootPart.Position.Z)
 		--if not other_agent:GetAttribute("Adversary") then
-			table.insert(obs,
-					agent.HumanoidRootPart.AssemblyLinearVelocity.X - other_agent.HumanoidRootPart.AssemblyLinearVelocity.X)
-			table.insert(obs,
-					agent.HumanoidRootPart.AssemblyLinearVelocity.Z - other_agent.HumanoidRootPart.AssemblyLinearVelocity.Z)
+		table.insert(obs,
+			agent.HumanoidRootPart.AssemblyLinearVelocity.X - other_agent.HumanoidRootPart.AssemblyLinearVelocity.X)
+		table.insert(obs,
+			agent.HumanoidRootPart.AssemblyLinearVelocity.Z - other_agent.HumanoidRootPart.AssemblyLinearVelocity.Z)
 		--end
 
 	end
@@ -199,7 +190,13 @@ local function reset_single_env(env)
 	local center=env.center.Position
 	for idx,agent in ipairs(env.Agents:GetChildren()) do
 		local comm, other_pos, other_vel= reset_single_agent( agent, center)
+		--if(agent:GetAttribute("Adversary")) then
+		--	print("agent ", idx, "is an adversary")
+		--else
+		--	print("agent ", idx, "is not an adversary")
+		--end
 	end
+
 	return get_ob_single_env(env)
 end
 
@@ -217,7 +214,10 @@ end
 local function Agent_action(env,agent,action_u, action_c)
 	--
 	--print(action_u, action_c)
-	agent.Humanoid:Move(Vector3.new(action_u[1], 0, action_u[2]), false)
+	--if agent:GetAttribute("Adversary") then
+		agent.Humanoid:Move(Vector3.new(action_u[1], 0, action_u[2]), false)
+	--end
+
 	--agent:SetAttribute("Comm", Vector3.new(action_c[1], 0, action_c[2]))
 
 end
@@ -229,6 +229,7 @@ local function make_action(action_variables)
 		end
 	end
 end
+
 
 local function agent_reward(env, agent)
 	-- Agents are negatively rewarded if caught by adversaries
@@ -244,6 +245,7 @@ local function agent_reward(env, agent)
 				reward-=10
 				done=true
 			end
+
 		else
 			--cooporation
 			reward+=0
@@ -278,8 +280,13 @@ local function adversary_reward(env, agent)
 			reward+=0
 		end
 	end
+	--print(reward)
+	--if(done) then
+	--	print("adv reward:", reward)
+	--end
 	return reward,done
 end
+
 
 local function compute_rewards()
 	local rewardsAll={}
@@ -294,8 +301,12 @@ local function compute_rewards()
 			local reward,done
 			if(agent:GetAttribute("Adversary")) then
 				reward,done= adversary_reward(env, agent)
+				--print("adv rew:", reward)
+
 			else
-				reward,done=agent_reward(env, agent)
+				reward,done= agent_reward(env, agent)
+				--print("age rew:", reward)
+
 			end
 			table.insert(rewards,reward)
 			table.insert(is_done,done)
@@ -404,4 +415,6 @@ end)
 
 
 --make_envs(NUM_ENV)
+--reset()
+--compute_rewards()
 MLRpcService:Start(port)
